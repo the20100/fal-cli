@@ -5,7 +5,7 @@ A CLI for the [fal.ai](https://fal.ai) API — run generative AI models, manage 
 ## Install
 
 ```bash
-git clone https://github.com/vincentmaurin/fal-cli
+git clone https://github.com/the20100/fal-cli
 cd fal-cli
 go build -o fal .
 mv fal /usr/local/bin/fal

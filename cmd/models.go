@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/vincentmaurin/fal-cli/internal/output"
+	"github.com/the20100/fal-cli/internal/output"
 )
 
 var modelsCmd = &cobra.Command{

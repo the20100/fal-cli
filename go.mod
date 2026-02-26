@@ -1,4 +1,4 @@
-module github.com/vincentmaurin/fal-cli
+module github.com/the20100/fal-cli
 
 go 1.22
 

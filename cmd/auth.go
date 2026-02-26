@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/vincentmaurin/fal-cli/internal/config"
+	"github.com/the20100/fal-cli/internal/config"
 )
 
 var authCmd = &cobra.Command{

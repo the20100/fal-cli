@@ -6,8 +6,8 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
-	"github.com/vincentmaurin/fal-cli/internal/api"
-	"github.com/vincentmaurin/fal-cli/internal/config"
+	"github.com/the20100/fal-cli/internal/api"
+	"github.com/the20100/fal-cli/internal/config"
 )
 
 var (
