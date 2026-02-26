@@ -5,10 +5,12 @@ package cmd
 //
 // Usage:
 //   fal edit "make it night time" --image https://example.com/photo.jpg
-//   fal edit "remove the car" --image https://... --image https://...
-//   fal edit-old "make it night time" --image https://example.com/photo.jpg
+//   fal edit "make it night time" --file /absolute/path/to/photo.jpg
+//   fal edit "remove the car" --image https://... --file /path/to/other.jpg
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -16,6 +18,7 @@ import (
 
 var (
 	editImages       []string
+	editFiles        []string
 	editAspect       string
 	editResolution   string
 	editNum          int
@@ -33,12 +36,15 @@ var editCmd = &cobra.Command{
 	Short: "Edit images with nano-banana-2 (fal-ai/nano-banana-2/edit)",
 	Long: `Shortcut for fal-ai/nano-banana-2/edit — state-of-the-art image editing model.
 
-Provide one or more image URLs to edit, and a prompt describing the transformation.
+Provide image sources via --image (URL) and/or --file (local absolute path).
+Local files are uploaded to fal.ai storage before the edit request is sent.
+Both flags are repeatable and can be combined.
 
 Examples:
   fal edit "make it night time" --image https://example.com/photo.jpg
-  fal edit "add snow" --image https://example.com/city.jpg --aspect 16:9
-  fal edit "remove background" --image https://... --image https://... --num 2`,
+  fal edit "make it night time" --file /path/to/photo.jpg
+  fal edit "add snow" --file /path/to/city.jpg --aspect 16:9
+  fal edit "remove background" --image https://... --file /path/to/other.jpg --num 2`,
 	Args: cobra.ExactArgs(1),
 	RunE: runEdit,
 }
@@ -47,6 +53,7 @@ Examples:
 
 var (
 	editOldImages       []string
+	editOldFiles        []string
 	editOldAspect       string
 	editOldResolution   string
 	editOldNum          int
@@ -64,12 +71,14 @@ var editOldCmd = &cobra.Command{
 	Short: "Edit images with nano-banana-pro (fal-ai/nano-banana-pro/edit, previous model)",
 	Long: `Shortcut for fal-ai/nano-banana-pro/edit — previous image editing model.
 
-Provide one or more image URLs to edit, and a prompt describing the transformation.
+Provide image sources via --image (URL) and/or --file (local absolute path).
+Local files are uploaded to fal.ai storage before the edit request is sent.
+Both flags are repeatable and can be combined.
 
 Examples:
   fal edit-old "make it night time" --image https://example.com/photo.jpg
-  fal edit-old "add snow" --image https://example.com/city.jpg --aspect 16:9
-  fal edit-old "remove background" --image https://... --image https://... --num 2`,
+  fal edit-old "make it night time" --file /path/to/photo.jpg
+  fal edit-old "remove background" --image https://... --file /path/to/other.jpg --num 2`,
 	Args: cobra.ExactArgs(1),
 	RunE: runEditOld,
 }
@@ -77,7 +86,9 @@ Examples:
 func init() {
 	// edit flags
 	editCmd.Flags().StringArrayVar(&editImages, "image", nil,
-		"Image URL(s) to edit (required, repeatable)")
+		"Image URL to edit (repeatable, combinable with --file)")
+	editCmd.Flags().StringArrayVar(&editFiles, "file", nil,
+		"Local image path to upload and edit (absolute path, repeatable)")
 	editCmd.Flags().StringVar(&editAspect, "aspect", "auto",
 		"Aspect ratio: 21:9, 16:9, 3:2, 4:3, 5:4, 1:1, 4:5, 3:4, 2:3, 9:16, auto")
 	editCmd.Flags().StringVar(&editResolution, "resolution", "1K",
@@ -98,12 +109,13 @@ func init() {
 		"Submit via queue instead of sync")
 	editCmd.Flags().BoolVar(&editLogs, "logs", false,
 		"Show model logs while polling queue (implies --queue)")
-	_ = editCmd.MarkFlagRequired("image")
 	rootCmd.AddCommand(editCmd)
 
 	// edit-old flags
 	editOldCmd.Flags().StringArrayVar(&editOldImages, "image", nil,
-		"Image URL(s) to edit (required, repeatable)")
+		"Image URL to edit (repeatable, combinable with --file)")
+	editOldCmd.Flags().StringArrayVar(&editOldFiles, "file", nil,
+		"Local image path to upload and edit (absolute path, repeatable)")
 	editOldCmd.Flags().StringVar(&editOldAspect, "aspect", "auto",
 		"Aspect ratio: 21:9, 16:9, 3:2, 4:3, 5:4, 1:1, 4:5, 3:4, 2:3, 9:16, auto")
 	editOldCmd.Flags().StringVar(&editOldResolution, "resolution", "1K",
@@ -124,16 +136,46 @@ func init() {
 		"Submit via queue instead of sync")
 	editOldCmd.Flags().BoolVar(&editOldLogs, "logs", false,
 		"Show model logs while polling queue (implies --queue)")
-	_ = editOldCmd.MarkFlagRequired("image")
 	rootCmd.AddCommand(editOldCmd)
+}
+
+// resolveImageSources uploads local files and merges them with URL images.
+// Returns a combined slice of URLs ready to send to the API.
+func resolveImageSources(cmd *cobra.Command, urls []string, files []string) ([]string, error) {
+	if len(urls) == 0 && len(files) == 0 {
+		return nil, fmt.Errorf("at least one --image <url> or --file <path> is required")
+	}
+
+	result := make([]string, 0, len(urls)+len(files))
+	result = append(result, urls...)
+
+	if len(files) > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Uploading %d local file(s)...\n", len(files))
+		for _, path := range files {
+			fmt.Fprintf(cmd.ErrOrStderr(), "  uploading %s\n", path)
+			uploadedURL, err := client.UploadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("upload failed for %s: %w", path, err)
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "  → %s\n", uploadedURL)
+			result = append(result, uploadedURL)
+		}
+	}
+
+	return result, nil
 }
 
 func runEdit(cmd *cobra.Command, args []string) error {
 	prompt := args[0]
 
+	imageURLs, err := resolveImageSources(cmd, editImages, editFiles)
+	if err != nil {
+		return err
+	}
+
 	payload := map[string]any{
 		"prompt":           prompt,
-		"image_urls":       editImages,
+		"image_urls":       imageURLs,
 		"aspect_ratio":     editAspect,
 		"resolution":       editResolution,
 		"num_images":       editNum,
@@ -162,9 +204,14 @@ func runEdit(cmd *cobra.Command, args []string) error {
 func runEditOld(cmd *cobra.Command, args []string) error {
 	prompt := args[0]
 
+	imageURLs, err := resolveImageSources(cmd, editOldImages, editOldFiles)
+	if err != nil {
+		return err
+	}
+
 	payload := map[string]any{
 		"prompt":           prompt,
-		"image_urls":       editOldImages,
+		"image_urls":       imageURLs,
 		"aspect_ratio":     editOldAspect,
 		"resolution":       editOldResolution,
 		"num_images":       editOldNum,

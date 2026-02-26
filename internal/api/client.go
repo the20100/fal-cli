@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -217,6 +220,54 @@ func (c *Client) RunQueued(modelID string, payload any, progress func(status *Qu
 			return c.QueueResult(modelID, sub.RequestID)
 		}
 	}
+}
+
+// ---- Platform API: File upload ----
+
+// UploadFile uploads a local file to fal.ai storage and returns its CDN URL.
+// Uses the serverless files API: POST /v1/serverless/files/file/local/{filename}
+// with the file content as a multipart form field "file_upload".
+func (c *Client) UploadFile(localPath string) (string, error) {
+	f, err := os.Open(localPath)
+	if err != nil {
+		return "", fmt.Errorf("opening %s: %w", localPath, err)
+	}
+	defer f.Close()
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	fw, err := w.CreateFormFile("file_upload", filepath.Base(localPath))
+	if err != nil {
+		return "", fmt.Errorf("creating form field: %w", err)
+	}
+	if _, err := io.Copy(fw, f); err != nil {
+		return "", fmt.Errorf("reading file: %w", err)
+	}
+	w.Close()
+
+	targetPath := url.PathEscape(filepath.Base(localPath))
+	endpoint := fmt.Sprintf("%s/serverless/files/file/local/%s", apiBase, targetPath)
+
+	req, err := http.NewRequest(http.MethodPost, endpoint, &buf)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return "", fmt.Errorf("uploading file: %w", err)
+	}
+
+	var resp FileUploadResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("parsing upload response: %w", err)
+	}
+	if resp.URL == "" {
+		return "", fmt.Errorf("upload succeeded but response contained no URL")
+	}
+	return resp.URL, nil
 }
 
 // ---- Platform API: Models ----

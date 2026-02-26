@@ -90,6 +90,16 @@ type GenerateResponse struct {
 	Timings     json.RawMessage `json:"timings"`
 }
 
+// ---- File upload types ----
+
+// FileUploadResponse is returned after uploading a local file to fal.ai storage.
+type FileUploadResponse struct {
+	URL         string `json:"url"`
+	ContentType string `json:"content_type"`
+	FileName    string `json:"file_name"`
+	FileSize    int64  `json:"file_size"`
+}
+
 // ---- fal API error ----
 
 // FalError represents an error returned by the fal.ai API.
