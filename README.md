@@ -35,7 +35,7 @@ Config is stored at:
 ### Shortcut: generate images
 
 ```bash
-# nano-banana-pro — text-to-image ($0.15/image)
+# nano-banana-2 — text-to-image
 fal generate "a cat wearing a hat"
 fal generate "golden gate bridge at sunset" --aspect 16:9
 fal generate "portrait of a woman" --resolution 2K --num 2
@@ -47,11 +47,15 @@ fal generate "epic artwork" --resolution 4K --queue --logs
 ### Shortcut: edit images
 
 ```bash
-# nano-banana-pro/edit — image-to-image ($0.15/image)
+# nano-banana-2/edit — image-to-image
 fal edit "make it night time" --image https://example.com/photo.jpg
 fal edit "add snow" --image https://example.com/city.jpg --aspect 16:9
 fal edit "remove background" --image https://example.com/portrait.jpg
 fal edit "composite together" --image https://img1.jpg --image https://img2.jpg
+
+# Upload a local file instead of (or alongside) a URL
+fal edit "make it night time" --file /path/to/photo.jpg
+fal edit "composite together" --file /path/to/base.png --image https://img2.jpg
 ```
 
 ### Run any model
@@ -126,6 +130,18 @@ fal run fal-ai/flux/dev --input '{"prompt":"a cat"}' --queue 2>&1 | grep "Queued
 fal queue poll fal-ai/flux/dev <request-id>
 ```
 
+### `update` — Self-update
+
+Pull the latest source from GitHub, rebuild, and replace the current binary.
+
+```bash
+fal update
+```
+
+Requires `git` and `go` to be installed.
+
+---
+
 ## generate / edit flags
 
 | Flag | Default | Description |
@@ -140,3 +156,10 @@ fal queue poll fal-ai/flux/dev <request-id>
 | `--google-search` | off | Google search grounding |
 | `--queue` | off | Use queue instead of sync |
 | `--logs` | off | Show model logs while polling |
+
+**edit-only flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--image` | — | Image URL to edit (repeatable) |
+| `--file` | — | Local file path to upload and edit (repeatable) |
