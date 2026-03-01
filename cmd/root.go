@@ -30,7 +30,7 @@ var rootCmd = &cobra.Command{
 It outputs JSON when piped (for agent use) and human-readable tables in a terminal.
 
 Token resolution order:
-  1. FAL_KEY env var
+  1. FAL_KEY env var (or aliases: FAL_API_KEY, FAL_API, API_KEY_FAL, ...)
   2. Own config  (~/.config/fal/config.json  via: fal auth set-key)
 
 Examples:
@@ -96,18 +96,21 @@ func printInfo() {
 	fmt.Println()
 
 	keySource := "(not set)"
-	if t := os.Getenv("FAL_KEY"); t != "" {
-		keySource = "FAL_KEY env var"
+	if t := resolveEnv(
+		"FAL_KEY", "FAL_API_KEY", "FAL_API", "API_KEY_FAL", "API_FAL", "FAL_PK", "FAL_PUBLIC",
+		"FAL_API_SECRET", "FAL_SECRET_KEY", "FAL_API_SECRET_KEY", "FAL_SECRET", "SECRET_FAL", "API_SECRET_FAL", "SK_FAL", "FAL_SK",
+	); t != "" {
+		keySource = "FAL_KEY env var (or alias)"
 	} else if c, err := config.Load(); err == nil && c.APIKey != "" {
 		keySource = "config file"
 	}
 	fmt.Printf("  key source: %s\n", keySource)
 	fmt.Println()
 	fmt.Println("  env vars:")
-	fmt.Printf("    FAL_KEY = %s\n", maskOrEmpty(os.Getenv("FAL_KEY")))
+	fmt.Printf("    FAL_KEY = %s  (also accepts aliases: FAL_API_KEY, FAL_API, ...)\n", maskOrEmpty(os.Getenv("FAL_KEY")))
 	fmt.Println()
 	fmt.Println("  key resolution order:")
-	fmt.Println("    1. FAL_KEY env var")
+	fmt.Println("    1. FAL_KEY env var (or aliases)")
 	fmt.Println("    2. config file  (fal auth set-key)")
 }
 
@@ -121,10 +124,23 @@ func maskOrEmpty(v string) string {
 	return v[:4] + "..." + v[len(v)-4:]
 }
 
+// resolveEnv returns the value of the first non-empty environment variable from the given names.
+func resolveEnv(names ...string) string {
+	for _, name := range names {
+		if v := os.Getenv(name); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // resolveAPIKey returns the best available API key.
 func resolveAPIKey() (string, error) {
-	// 1. FAL_KEY env var
-	if k := os.Getenv("FAL_KEY"); k != "" {
+	// 1. Env var aliases (key and secret variants)
+	if k := resolveEnv(
+		"FAL_KEY", "FAL_API_KEY", "FAL_API", "API_KEY_FAL", "API_FAL", "FAL_PK", "FAL_PUBLIC",
+		"FAL_API_SECRET", "FAL_SECRET_KEY", "FAL_API_SECRET_KEY", "FAL_SECRET", "SECRET_FAL", "API_SECRET_FAL", "SK_FAL", "FAL_SK",
+	); k != "" {
 		return k, nil
 	}
 
