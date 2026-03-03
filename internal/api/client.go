@@ -129,6 +129,17 @@ func (c *Client) RunSync(modelID string, payload any) ([]byte, error) {
 	return c.postJSON(endpoint, payload)
 }
 
+// baseModelID returns the owner/alias portion of a model ID, stripping any
+// sub-path (e.g. "fal-ai/nano-banana-2/edit" → "fal-ai/nano-banana-2").
+// Queue status, result, and cancel endpoints use only the base model ID.
+func baseModelID(modelID string) string {
+	parts := strings.SplitN(strings.TrimPrefix(modelID, "/"), "/", 3)
+	if len(parts) >= 2 {
+		return parts[0] + "/" + parts[1]
+	}
+	return strings.TrimPrefix(modelID, "/")
+}
+
 // ---- Queue ----
 
 // QueueSubmit submits a request to the queue and returns queue metadata.
@@ -150,7 +161,7 @@ func (c *Client) QueueSubmit(modelID string, payload any) (*QueueSubmitResponse,
 // modelID is required to build the status URL.
 func (c *Client) QueueStatus(modelID, requestID string, withLogs bool) (*QueueStatus, error) {
 	endpoint := fmt.Sprintf("%s/%s/requests/%s/status",
-		queueBase, strings.TrimPrefix(modelID, "/"), requestID)
+		queueBase, baseModelID(modelID), requestID)
 
 	params := url.Values{}
 	if withLogs {
@@ -172,14 +183,14 @@ func (c *Client) QueueStatus(modelID, requestID string, withLogs bool) (*QueueSt
 // QueueResult retrieves the completed result for a request.
 func (c *Client) QueueResult(modelID, requestID string) ([]byte, error) {
 	endpoint := fmt.Sprintf("%s/%s/requests/%s",
-		queueBase, strings.TrimPrefix(modelID, "/"), requestID)
+		queueBase, baseModelID(modelID), requestID)
 	return c.get(endpoint, nil)
 }
 
 // QueueCancel cancels a queued request.
 func (c *Client) QueueCancel(modelID, requestID string) error {
 	endpoint := fmt.Sprintf("%s/%s/requests/%s/cancel",
-		queueBase, strings.TrimPrefix(modelID, "/"), requestID)
+		queueBase, baseModelID(modelID), requestID)
 	_, err := c.put(endpoint)
 	return err
 }
