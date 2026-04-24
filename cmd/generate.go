@@ -1,10 +1,10 @@
 package cmd
 
-// generate is a shortcut for fal-ai/nano-banana-2 (text-to-image).
+// generate-banana is a shortcut for fal-ai/nano-banana-2 (text-to-image).
 //
 // Usage:
-//   fal generate "a cat wearing a hat"
-//   fal generate "a cat" --aspect 16:9 --resolution 2K --num 4
+//   fal generate-banana "a cat wearing a hat"
+//   fal generate-banana "a cat" --aspect 16:9 --resolution 2K --num 4
 
 import (
 	"github.com/spf13/cobra"
@@ -24,15 +24,15 @@ var (
 )
 
 var generateCmd = &cobra.Command{
-	Use:   "generate <prompt>",
+	Use:   "generate-banana <prompt>",
 	Short: "Generate images with nano-banana-2 (fal-ai/nano-banana-2)",
 	Long: `Shortcut for fal-ai/nano-banana-2 — state-of-the-art text-to-image model.
 
 Examples:
-  fal generate "a cat wearing a hat"
-  fal generate "golden gate bridge at sunset" --aspect 16:9
-  fal generate "portrait of a woman" --resolution 2K --num 2
-  fal generate "futuristic city" --format webp --queue`,
+  fal generate-banana "a cat wearing a hat"
+  fal generate-banana "golden gate bridge at sunset" --aspect 16:9
+  fal generate-banana "portrait of a woman" --resolution 2K --num 2
+  fal generate-banana "futuristic city" --format webp --queue`,
 	Args: cobra.ExactArgs(1),
 	RunE: runGenerate,
 }

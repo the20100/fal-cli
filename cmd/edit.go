@@ -1,11 +1,11 @@
 package cmd
 
-// edit is a shortcut for fal-ai/nano-banana-2/edit (image-to-image).
+// edit-banana is a shortcut for fal-ai/nano-banana-2/edit (image-to-image).
 //
 // Usage:
-//   fal edit "make it night time" --image https://example.com/photo.jpg
-//   fal edit "make it night time" --file /absolute/path/to/photo.jpg
-//   fal edit "remove the car" --image https://... --file /path/to/other.jpg
+//   fal edit-banana "make it night time" --image https://example.com/photo.jpg
+//   fal edit-banana "make it night time" --file /absolute/path/to/photo.jpg
+//   fal edit-banana "remove the car" --image https://... --file /path/to/other.jpg
 
 import (
 	"encoding/base64"
@@ -43,7 +43,7 @@ var (
 )
 
 var editCmd = &cobra.Command{
-	Use:   "edit <prompt>",
+	Use:   "edit-banana <prompt>",
 	Short: "Edit images with nano-banana-2 (fal-ai/nano-banana-2/edit)",
 	Long: `Shortcut for fal-ai/nano-banana-2/edit — state-of-the-art image editing model.
 
@@ -53,11 +53,11 @@ Use --r2-bucket + --r2-domain to upload to R2 instead (better for large files).
 Both flags are repeatable and can be combined.
 
 Examples:
-  fal edit "make it night time" --image https://example.com/photo.jpg
-  fal edit "make it night time" --file /path/to/photo.jpg
-  fal edit "add snow" --file /path/to/city.jpg --aspect 16:9
-  fal edit "add snow" --file /path/to/city.jpg --r2-bucket my-pub --r2-domain pub.example.com
-  fal edit "remove background" --image https://... --file /path/to/other.jpg --num 2`,
+  fal edit-banana "make it night time" --image https://example.com/photo.jpg
+  fal edit-banana "make it night time" --file /path/to/photo.jpg
+  fal edit-banana "add snow" --file /path/to/city.jpg --aspect 16:9
+  fal edit-banana "add snow" --file /path/to/city.jpg --r2-bucket my-pub --r2-domain pub.example.com
+  fal edit-banana "remove background" --image https://... --file /path/to/other.jpg --num 2`,
 	Args: cobra.ExactArgs(1),
 	RunE: runEdit,
 }
@@ -95,8 +95,8 @@ func init() {
 }
 
 // resolveImageSources converts local files to data URIs (base64) or uploads
-// them to R2 when --r2-bucket is set, then merges with any --image URLs.
-func resolveImageSources(cmd *cobra.Command, urls []string, files []string) ([]string, error) {
+// them to R2 when r2Bucket is set, then merges with any remote URLs.
+func resolveImageSources(cmd *cobra.Command, urls []string, files []string, r2Bucket, r2Domain string) ([]string, error) {
 	if len(urls) == 0 && len(files) == 0 {
 		return nil, fmt.Errorf("at least one --image <url> or --file <path> is required")
 	}
@@ -105,14 +105,14 @@ func resolveImageSources(cmd *cobra.Command, urls []string, files []string) ([]s
 	result = append(result, urls...)
 
 	if len(files) > 0 {
-		if editR2Bucket != "" {
+		if r2Bucket != "" {
 			// R2 upload path
-			if editR2Domain == "" {
+			if r2Domain == "" {
 				return nil, fmt.Errorf("--r2-domain is required when using --r2-bucket")
 			}
-			fmt.Fprintf(cmd.ErrOrStderr(), "Uploading %d file(s) to R2 bucket %q...\n", len(files), editR2Bucket)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Uploading %d file(s) to R2 bucket %q...\n", len(files), r2Bucket)
 			for _, path := range files {
-				publicURL, err := uploadToR2(cmd, path, editR2Bucket, editR2Domain)
+				publicURL, err := uploadToR2(cmd, path, r2Bucket, r2Domain)
 				if err != nil {
 					return nil, fmt.Errorf("R2 upload failed for %s: %w", path, err)
 				}
@@ -175,7 +175,7 @@ func uploadToR2(cmd *cobra.Command, localPath, bucket, domain string) (string, e
 func runEdit(cmd *cobra.Command, args []string) error {
 	prompt := args[0]
 
-	imageURLs, err := resolveImageSources(cmd, editImages, editFiles)
+	imageURLs, err := resolveImageSources(cmd, editImages, editFiles, editR2Bucket, editR2Domain)
 	if err != nil {
 		return err
 	}
